@@ -9,3 +9,10 @@ This is a work in progress.
 
 Command `contentdb` can be used to download mods from
 https://content.minetest.net and install them into the local `mods` folder.
+
+
+### Install
+
+To install, you need a working Go (> 1.16) toolchain:
+
+    go get github.com/ronoaldo/minetools/cmd/contentdb
