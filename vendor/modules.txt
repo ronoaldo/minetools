@@ -1,0 +1,14 @@
+# github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d
+github.com/cpuguy83/go-md2man/v2/md2man
+# github.com/russross/blackfriday/v2 v2.0.1
+github.com/russross/blackfriday/v2
+# github.com/shurcooL/sanitized_anchor_name v1.0.0
+github.com/shurcooL/sanitized_anchor_name
+# github.com/smartystreets/goconvey v1.6.4
+## explicit
+# github.com/urfave/cli v1.22.5
+## explicit
+github.com/urfave/cli
+# gopkg.in/ini.v1 v1.62.0
+## explicit
+gopkg.in/ini.v1
