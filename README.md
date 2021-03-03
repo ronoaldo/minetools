@@ -1,14 +1,16 @@
 # minetools
 
-Project minetools has several small command line utilities to manage a
-Minetest server from the command line.
+[![Go Reference](https://pkg.go.dev/badge/github.com/ronoaldo/minetools.svg)](https://pkg.go.dev/github.com/ronoaldo/minetools)
 
-This is a work in progress.
+Project minetools has several small utilities to manage a Minetest server
+from the command line.
+
+**This is a work in progress.**
 
 ## contentdb
 
 Command `contentdb` can be used to download mods from
-https://content.minetest.net and install them into the local `mods` folder.
+https://content.minetest.net and install them into a local `mods` folder.
 
 
 ### Install
