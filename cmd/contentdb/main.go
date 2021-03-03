@@ -136,9 +136,14 @@ func installMod(c *cli.Context) error {
 			cfg.Key("description").SetValue(pkg.ShortDescription)
 		}
 
-		// Unpack mod contents
+		// Avoid overwrite
 		destdir := filepath.Join("mods", modName)
+		if _, err = os.Stat(destdir); !os.IsNotExist(err) {
+			return fmt.Errorf("install: %v already exists, exiting (err=%v)", destdir, err)
+		}
 		os.MkdirAll(destdir, 0755)
+
+		// Unpack mod contents
 		modconf.SaveTo(filepath.Join(destdir, "mod.conf"))
 		for _, f := range z.File {
 			// Ignore directories as they will be auto-created bellow
