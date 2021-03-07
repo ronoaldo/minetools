@@ -1,6 +1,7 @@
 package contentdb
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -174,15 +175,16 @@ func (c *Client) GetPackage(author, name string) (pkg *Package, err error) {
 }
 
 // Download fetches the package archive from the ContentDB for the current revision.
-func (c *Client) Download(author, name string, w io.Writer) error {
+func (c *Client) Download(author, name string) (*PackageArchive, error) {
 	resp, err := c.makeCall("GET", "/packages/"+author+"/"+name+"/download/", nil, nil)
 	if err != nil {
-		return fmt.Errorf("contentdb: unable to download: %v", err)
+		return nil, fmt.Errorf("contentdb: unable to download: %v", err)
 	}
+	w := &bytes.Buffer{}
 	n, err := io.Copy(w, resp.Body)
 	if err != nil {
-		return fmt.Errorf("contentdb: unable to save downloaded bytes: %v", err)
+		return nil, fmt.Errorf("contentdb: unable to save downloaded bytes: %v", err)
 	}
 	api.Debugf("wrote %d bytes", n)
-	return nil
+	return NewPackageArchive(w.Bytes())
 }

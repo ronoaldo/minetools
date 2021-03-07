@@ -1,12 +1,12 @@
 package contentdb
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -25,11 +25,17 @@ func logJSON(t *testing.T, v interface{}) {
 
 func mockServer(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(r.URL.Path, "/download/") {
-		http.Redirect(w, r, "/uploads/content.zip", 302)
+		http.Redirect(w, r, "/sfinv.zip", 302)
 		return
 	}
 	if strings.HasSuffix(r.URL.Path, ".zip") {
-		fmt.Fprint(w, strings.Repeat("*", 1024))
+		fd, err := os.Open("./testdata" + r.URL.Path)
+		if err != nil {
+			http.Error(w, "Error opening file: "+err.Error(), 500)
+			return
+		}
+		defer fd.Close()
+		io.Copy(w, fd)
 		return
 	}
 	http.Error(w, "Not found", http.StatusNotFound)
@@ -148,18 +154,19 @@ func TestPackageDownload(t *testing.T) {
 				author: "rubenwardy",
 				name:   "sfinv",
 			},
-			wantBytesLen: 1024,
+			wantBytesLen: 38606,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := NewClient(context.Background())
-			w := &bytes.Buffer{}
-			if err := c.Download(tt.args.author, tt.args.name, w); (err != nil) != tt.wantErr {
+			var p *PackageArchive
+			var err error
+			if p, err = c.Download(tt.args.author, tt.args.name); (err != nil) != tt.wantErr {
 				t.Errorf("Package.Download() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if gotBytesLen := len(w.Bytes()); tt.wantBytesLen < gotBytesLen {
+			if gotBytesLen := len(p.b.Bytes()); tt.wantBytesLen < gotBytesLen {
 				t.Errorf("Package.Download() = %v, want min len %v", gotBytesLen, tt.wantBytesLen)
 			}
 		})

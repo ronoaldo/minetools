@@ -1,20 +1,22 @@
 package main
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/ronoaldo/minetools/api"
 	"github.com/ronoaldo/minetools/api/contentdb"
 	"github.com/urfave/cli"
 	"gopkg.in/ini.v1"
+)
+
+var (
+	apiDebug bool
 )
 
 func init() {
@@ -24,6 +26,8 @@ func init() {
 
 func main() {
 	app := cli.NewApp()
+	app.Name = "contentdb"
+	app.Usage = "Minetest ContentDB client implementation for headless server administration."
 	app.Commands = []cli.Command{
 		{
 			Name:  "install",
@@ -36,9 +40,22 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:   "search",
+			Usage:  "search for content",
+			Action: search,
+		},
 	}
+	app.Flags = append(app.Flags, cli.BoolFlag{
+		Name:        "debug",
+		EnvVar:      "CDB_DEBUG",
+		Usage:       "show debug information on console",
+		Destination: &apiDebug,
+	})
 	app.Before = func(c *cli.Context) error {
-		api.LogLevel = api.Debug
+		if apiDebug {
+			api.LogLevel = api.Debug
+		}
 		return nil
 	}
 
@@ -46,6 +63,25 @@ func main() {
 		api.Warningf("unexpected error: %v", err)
 		os.Exit(1)
 	}
+}
+
+func search(c *cli.Context) error {
+	queryString := strings.Join(c.Args(), " ")
+	cdb := contentdb.NewClient(context.Background())
+	query := contentdb.NewQuery(queryString).OrderBy("score")
+	pkgs, err := cdb.ListPackages(query)
+	if err != nil {
+		return fmt.Errorf("search: unable to call endpoint '%v': %v", queryString, err)
+	}
+	api.Debugf("search: found %d packages", len(pkgs))
+	t := tabwriter.NewWriter(os.Stdout, 18, 0, 1, ' ', 0)
+	fmt.Fprintf(t, "Key\tType\tTitle\tShort description\n")
+	for _, pkg := range pkgs {
+		fmt.Fprintf(t, "%s/%s\t%s\t%s\t%s\n",
+			pkg.Author, pkg.Name, pkg.Type, pkg.Title, fmt.Sprintf("%.60s", pkg.ShortDescription))
+	}
+	t.Flush()
+	return nil
 }
 
 func installMod(c *cli.Context) error {
@@ -58,59 +94,54 @@ func installMod(c *cli.Context) error {
 			err error
 		)
 
+		if strings.Count(mod, "/") != 1 {
+			api.Warningf("install: provide a valid package key: author/name (like rubenwardy/sfinv)")
+			continue
+		}
+
 		api.Debugf("install: installing %v (%v/%v)", mod, i, len(mods))
-		if strings.Count(mod, "/") > 0 {
-			// Get package details
-			s := strings.Split(mod, "/")
-			pkg, err = cdb.GetPackage(s[0], s[1])
-			if err != nil {
-				return fmt.Errorf("install: unable to find %v", mod)
-			}
-		} else {
-			// Lookup package using query
-			query := contentdb.NewQuery(mod).WithType("mod").OrderBy("score")
-			pkgs, err := cdb.ListPackages(query)
-			if err != nil {
-				return fmt.Errorf("install: unable to install '%v': %v", mod, err)
-			}
-			if len(pkgs) == 0 {
-				api.Warningf("install: no packages found")
-				continue
-			}
-			api.Debugf("install: found %d packages:", len(pkgs))
-			for _, pkg := range pkgs {
-				api.Debugf("install: - %v/%v (revision=%v)", pkg.Author, pkg.Name, pkg.Release)
-			}
-			// TODO(ronoaldo): allow package selection if more than 1 returned
-			pkg = &pkgs[0]
+		// Get package details
+		s := strings.Split(mod, "/")
+		pkg, err = cdb.GetPackage(s[0], s[1])
+		if err != nil {
+			return fmt.Errorf("install: unable to find %v", mod)
 		}
 
 		// Download zip file
-		buff := &bytes.Buffer{}
-		if err := cdb.Download(pkg.Author, pkg.Name, buff); err != nil {
-			return err
-		}
-		r, len := bytes.NewReader(buff.Bytes()), int64(buff.Len())
-		z, err := zip.NewReader(r, len)
+		archive, err := cdb.Download(pkg.Author, pkg.Name)
 		if err != nil {
 			return err
 		}
 
-		// init.lua: mods are expected to have init.lua
-		validMod, stripPrefix := findInitLua(z)
-		if !validMod {
-			return fmt.Errorf("install: unsupported mod: missing */init.lua file")
+		pkgType := archive.Type()
+		if pkgType != contentdb.Mod && pkgType != contentdb.Modpack {
+			return fmt.Errorf("install: package is not a mod/modpack: %s", pkgType)
 		}
 
-		// mod.conf: try to load from zip, create empty one if not found.
+		// mod.conf/modpack.conf: try to load from zip, create empty one if not found
 		var modconf *ini.File
-		b, err := readZipFile(z, stripPrefix+"mod.conf")
+
+		modconfFilename := "mod.conf"
+		// mod root dir is where init.lua is
+		found, stripPrefix := archive.FindFile("init.lua", 0)
+		if pkgType == contentdb.Modpack {
+			// For modpack, load a diferent config name and adjust the stripPrefix
+			modconfFilename = "modpack.conf"
+			found, stripPrefix = archive.FindFile(modconfFilename, 1)
+			if found == 0 {
+				// Backwards compati
+				_, stripPrefix = archive.FindFile("modpack.txt", 1)
+			}
+		}
+		api.Debugf("Processing archive of type %s (stripPrefix=%s)", pkgType, stripPrefix)
+
+		b, err := archive.ReadFile(stripPrefix + modconfFilename)
 		switch err {
-		case errFileNotFound:
-			api.Debugf(stripPrefix + "mod.conf not found, creating one")
+		case contentdb.ErrFileNotFound:
+			api.Debugf(stripPrefix + " " + modconfFilename + " not found, creating one")
 			modconf = ini.Empty()
 		case nil:
-			api.Debugf(stripPrefix + "mod.conf found, using provided one")
+			api.Debugf(stripPrefix + " " + modconfFilename + " found, using provided one")
 			if modconf, err = ini.Load(b); err != nil {
 				return err
 			}
@@ -144,34 +175,26 @@ func installMod(c *cli.Context) error {
 		os.MkdirAll(destdir, 0755)
 
 		// Unpack mod contents
-		modconf.SaveTo(filepath.Join(destdir, "mod.conf"))
-		for _, f := range z.File {
-			// Ignore directories as they will be auto-created bellow
-			if f.FileInfo().IsDir() {
-				continue
-			}
-			if stripPrefix+"mod.conf" == f.Name {
+		modconf.SaveTo(filepath.Join(destdir, modconfFilename))
+		for _, f := range archive.Contents() {
+			// Skip mod.conf as we already created it.
+			if stripPrefix+modconfFilename == f {
 				continue
 			}
 			// Strip folder prefix while unpacking
-			noprefix := strings.Replace(f.Name, stripPrefix, "", 1)
+			noprefix := strings.Replace(f, stripPrefix, "", 1)
 			fname := filepath.FromSlash(noprefix) // zip is '/' separated, convert to filepath.Separator
 			// Sanity check: verify target to prevent Zip Slip vul.
 			target := filepath.Clean(filepath.Join(destdir, fname))
 			if !strings.HasPrefix(target, destdir) {
-				api.Warningf("possible Zip Slip found, ignoring %v", f.Name)
+				api.Warningf("possible Zip Slip found, ignoring %v", f)
 				continue
 			}
-			api.Debugf("Extracting '%v' into '%v'", f.Name, target)
+			api.Debugf("Extracting '%v' into '%v'", f, target)
 			// Create destination directory
 			os.MkdirAll(filepath.Dir(target), 0755)
 			// Extract file contents
-			rc, err := f.Open()
-			if err != nil {
-				return fmt.Errorf("install: error reading from zip: %v", err)
-			}
-			b, err := ioutil.ReadAll(rc)
-			rc.Close()
+			b, err := archive.ReadFile(f)
 			if err != nil {
 				return fmt.Errorf("install: error reading from zip: %v", err)
 			}
@@ -179,44 +202,8 @@ func installMod(c *cli.Context) error {
 				return fmt.Errorf("install: error writing to %v: %v", target, err)
 			}
 		}
-
+		api.Infof("Installed '%s' on '%s'", mod, destdir)
 	}
 
 	return nil
-}
-
-// TODO(ronoaldo): refactor these misc funcs into a archive helper
-
-// findInitLua identifies the first directory where init.lua is found. This
-// represents the mod root folder.
-func findInitLua(z *zip.Reader) (found bool, stripPrefix string) {
-	patterns := []string{"init.lua", "*/init.lua"}
-
-	for _, p := range patterns {
-		for _, f := range z.File {
-			if ok, _ := path.Match(p, f.Name); ok {
-				dir, _ := path.Split(f.Name)
-				return true, dir
-			}
-		}
-	}
-
-	return false, ""
-}
-
-var errFileNotFound = fmt.Errorf("readZipFile: not found")
-
-func readZipFile(z *zip.Reader, pattern string) ([]byte, error) {
-	for _, f := range z.File {
-		fname := filepath.Clean(f.Name)
-		if matches, _ := filepath.Match(pattern, fname); matches {
-			reader, err := f.Open()
-			if err != nil {
-				return nil, err
-			}
-			defer reader.Close()
-			return ioutil.ReadAll(reader)
-		}
-	}
-	return nil, errFileNotFound
 }
