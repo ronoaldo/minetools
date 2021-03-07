@@ -21,6 +21,9 @@ var (
 	bytesTelegram []byte      = mustReadFile("testdata/telegram.zip")
 	zipTelegram   *zip.Reader = mustZip(bytesTelegram)
 
+	bytesRespawn []byte      = mustReadFile("testdata/respawn.zip")
+	zipRespawn   *zip.Reader = mustZip(bytesRespawn)
+
 	bytesNestedMod []byte      = mustReadFile("testdata/nestedmod.zip")
 	zipNestedMod   *zip.Reader = mustZip(bytesNestedMod)
 
@@ -136,6 +139,11 @@ func TestPackageArchive_Type(t *testing.T) {
 			name:   "should detect invalid modpack with multiple mods inside",
 			fields: fields{b: bytes.NewBuffer(bytesInvalidModpack), z: zipInvalidModpack},
 			want:   Invalid,
+		},
+		{
+			name:   "should detect valid mod at the root of zip folder",
+			fields: fields{b: bytes.NewBuffer(bytesRespawn), z: zipRespawn},
+			want:   Mod,
 		},
 	}
 	for _, tt := range tests {
