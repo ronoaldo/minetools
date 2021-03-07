@@ -12,9 +12,16 @@ from the command line.
 Command `contentdb` can be used to download mods from
 https://content.minetest.net and install them into a local `mods` folder.
 
-
-### Install
-
-To install, you need a working Go (> 1.16) toolchain:
+To install the contentdb cli, you need a working Go (> 1.16) toolchain:
 
     go get github.com/ronoaldo/minetools/cmd/contentdb
+
+### Usage
+
+To search for content, use the `search` subcommand:
+
+    contentdb search mesecons
+
+To install a mod/modpack, use the `install mod` subcommand:
+
+    contentdb install mod rubenwardy/sfinv
