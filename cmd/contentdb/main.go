@@ -16,7 +16,8 @@ import (
 )
 
 var (
-	apiDebug bool
+	apiDebug      bool
+	updatePackage bool
 )
 
 func init() {
@@ -32,6 +33,13 @@ func main() {
 		{
 			Name:  "install",
 			Usage: "install new content",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "update",
+					Usage:       "update if the mod is already installed",
+					Destination: &updatePackage,
+				},
+			},
 			Subcommands: []cli.Command{
 				{
 					Name:   "mod",
@@ -88,7 +96,7 @@ func installMod(c *cli.Context) error {
 	mods := c.Args()
 	cdb := contentdb.NewClient(context.Background())
 
-	for i, mod := range mods {
+	for _, mod := range mods {
 		var (
 			pkg *contentdb.Package
 			err error
@@ -99,15 +107,17 @@ func installMod(c *cli.Context) error {
 			continue
 		}
 
-		api.Debugf("install: installing %v (%v/%v)", mod, i, len(mods))
 		// Get package details
+		fmt.Println("Searching for package ", mod)
 		s := strings.Split(mod, "/")
 		pkg, err = cdb.GetPackage(s[0], s[1])
 		if err != nil {
-			return fmt.Errorf("install: unable to find %v", mod)
+			api.Warningf("install: unable to find %v", mod)
+			continue
 		}
 
 		// Download zip file
+		fmt.Printf("Downloading %v/%v@%v ...\n", pkg.Author, pkg.Name, pkg.Release)
 		archive, err := cdb.Download(pkg.Author, pkg.Name)
 		if err != nil {
 			return err
@@ -115,7 +125,8 @@ func installMod(c *cli.Context) error {
 
 		pkgType := archive.Type()
 		if pkgType != contentdb.Mod && pkgType != contentdb.Modpack {
-			return fmt.Errorf("install: package is not a mod/modpack: %s", pkgType)
+			api.Warningf("install: package is not a mod/modpack: %s", pkgType)
+			continue
 		}
 
 		// mod.conf/modpack.conf: try to load from zip, create empty one if not found
@@ -129,12 +140,13 @@ func installMod(c *cli.Context) error {
 			modconfFilename = "modpack.conf"
 			found, stripPrefix = archive.FindFile(modconfFilename, 1)
 			if found == 0 {
-				// Backwards compati
+				// Backwards compatibility
 				_, stripPrefix = archive.FindFile("modpack.txt", 1)
 			}
 		}
 		api.Debugf("Processing archive of type %s (stripPrefix=%s)", pkgType, stripPrefix)
 
+		// Initialize package configuration file
 		b, err := archive.ReadFile(stripPrefix + modconfFilename)
 		switch err {
 		case contentdb.ErrFileNotFound:
@@ -148,16 +160,11 @@ func installMod(c *cli.Context) error {
 		default:
 			return err
 		}
-
-		// Use modName from mod.conf, otherwise from contentdb
 		cfg := modconf.Section("")
-		modName := pkg.Name
-		if cfg.HasKey("name") {
-			modName = cfg.Key("name").String()
-		} else {
-			cfg.Key("name").SetValue(pkg.Name)
-		}
+
 		// Update mod.conf with contentdb data so we keep track of updates.
+		modName := pkg.Name
+		cfg.Key("name").SetValue(modName)
 		cfg.Key("author").SetValue(pkg.Author)
 		cfg.Key("release").SetValue(fmt.Sprintf("%d", pkg.Release))
 		if !cfg.HasKey("title") {
@@ -167,14 +174,22 @@ func installMod(c *cli.Context) error {
 			cfg.Key("description").SetValue(pkg.ShortDescription)
 		}
 
-		// Avoid overwrite
+		// Avoid overwrite destination directory, if updatePackage is not provided.
 		destdir := filepath.Join("mods", modName)
 		if _, err = os.Stat(destdir); !os.IsNotExist(err) {
-			return fmt.Errorf("install: %v already exists, exiting (err=%v)", destdir, err)
+			if !updatePackage {
+				return fmt.Errorf("install: %v already exists, exiting (err=%v)", destdir, err)
+			}
+			fmt.Println("Removing previous installation (--update provided) ...")
+			if err = os.RemoveAll(destdir); err != nil {
+				return fmt.Errorf("install: unable to clean previous install at %v: %v", destdir, err)
+			}
 		}
-		os.MkdirAll(destdir, 0755)
 
 		// Unpack mod contents
+		fmt.Println("Extracting package contents ...")
+
+		os.MkdirAll(destdir, 0755)
 		modconf.SaveTo(filepath.Join(destdir, modconfFilename))
 		for _, f := range archive.Contents() {
 			// Skip mod.conf as we already created it.
@@ -202,7 +217,10 @@ func installMod(c *cli.Context) error {
 				return fmt.Errorf("install: error writing to %v: %v", target, err)
 			}
 		}
-		api.Infof("Installed '%s' on '%s'", mod, destdir)
+		fmt.Printf("Intalled %v into %v\n", mod, destdir)
+		fmt.Printf("Add load_mod_%s = true to world.mt to use it.\n", pkg.Name)
+		fmt.Printf("* Dependencies: %v\n", cfg.Key("depends").String())
+		fmt.Printf("* Optional dependencies: %v\n", cfg.Key("optional_depends").String())
 	}
 
 	return nil
