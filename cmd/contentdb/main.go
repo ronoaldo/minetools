@@ -235,7 +235,7 @@ func installMod(mods []string) error {
 				return fmt.Errorf("install: error writing to %v: %v", target, err)
 			}
 		}
-		green("Intalled %v into %v\n", mod, destdir)
+		green("Installed %v into %v\n", mod, destdir)
 		fmt.Printf("Add load_mod_%s = true to world.mt to use it.\n", pkg.Name)
 		fmt.Printf("* Dependencies: %v\n", cfg.Key("depends").String())
 		fmt.Printf("* Optional dependencies: %v\n", cfg.Key("optional_depends").String())
