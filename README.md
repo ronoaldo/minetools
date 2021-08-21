@@ -22,6 +22,10 @@ To search for content, use the `search` subcommand:
 
     contentdb search mesecons
 
-To install a mod/modpack, use the `install mod` subcommand:
+To install a mod/modpack, use the `install` subcommand:
 
     contentdb install mod rubenwardy/sfinv
+
+To update all mods in the mods folder, use the `update` subdommand:
+
+    contentdb update
