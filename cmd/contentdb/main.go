@@ -152,8 +152,9 @@ func installMod(mods []string) error {
 
 		modconfFilename := "mod.conf"
 		// mod root dir is where init.lua is
-		found, stripPrefix := archive.FindFile("init.lua", 0)
+		_, stripPrefix := archive.FindFile("init.lua", 0)
 		if pkgType == contentdb.Modpack {
+			var found = 0
 			// For modpack, load a diferent config name and adjust the stripPrefix
 			modconfFilename = "modpack.conf"
 			found, stripPrefix = archive.FindFile(modconfFilename, 1)
@@ -192,13 +193,19 @@ func installMod(mods []string) error {
 			cfg.Key("description").SetValue(pkg.ShortDescription)
 		}
 
+		if dryRun {
+			yellow("[Package installation skipped, just a dry-run]")
+			fmt.Println("")
+			return nil
+		}
+
 		// Avoid overwrite destination directory, if updatePackage is not provided.
 		destdir := filepath.Join("mods", modName)
 		if _, err = os.Stat(destdir); !os.IsNotExist(err) {
 			if !removeOldpackage {
 				return fmt.Errorf("install: %v already exists, exiting (err=%v)", destdir, err)
 			}
-			fmt.Println("Removing previous installation (--update provided) ...")
+			fmt.Println("Removing previous installation (performing in-place update as requested) ...")
 			if err = os.RemoveAll(destdir); err != nil {
 				return fmt.Errorf("install: unable to clean previous install at %v: %v", destdir, err)
 			}
@@ -316,6 +323,11 @@ func updateMod(cdb *contentdb.Client, modDir string) error {
 	// Update?
 	if int64(pkg.Release) > release && release > 0 {
 		fmt.Printf("updating to version %v ...\n", pkg.Release)
+		if dryRun {
+			yellow("[Update skipped, just a dry-run]")
+			fmt.Println("")
+			return nil
+		}
 		os.Chdir(pwd)
 		return installMod([]string{fmt.Sprintf("%s/%s", author, name)})
 	}
