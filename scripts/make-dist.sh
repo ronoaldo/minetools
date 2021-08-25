@@ -9,6 +9,7 @@ mkdir -p dist
 for GOOS in $OSES; do
     for GOARCH in $ARCHS; do
         echo "Building for GOOS=$GOOS GOARCH=$GOARCH"
-        GOOS=$GOOS GOARCH=$GOARCH go build -o dist/contentdb-${GOOS}-${GOARCH} ./cmd/contentdb
+        GOOS=$GOOS GOARCH=$GOARCH go build -o dist/contentdb ./cmd/contentdb
+        zip dist/contentdb-$GOOS-$GOARCH.zip dist/contentdb README.md LICENSE
     done
 done

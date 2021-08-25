@@ -14,9 +14,14 @@ https://content.minetest.net and install them into a local `mods` folder.
 
 To install the contentdb cli, you need a working Go (> 1.16) toolchain:
 
-    go get github.com/ronoaldo/minetools/cmd/contentdb
+    git clone https://github.com/ronoaldo/minetools
+    go install ./minetools/cmd/contentdb
 
 ### Usage
+
+To get the online help with all parameters, run
+
+    contentdb --help
 
 To search for content, use the `search` subcommand:
 
@@ -26,6 +31,10 @@ To install a mod/modpack, use the `install` subcommand:
 
     contentdb install mod rubenwardy/sfinv
 
-To update all mods in the mods folder, use the `update` subdommand:
+To update all mods in the mods folder (including those installed with git!), use the `update` subdommand:
 
     contentdb update
+
+You can check what would be updated by running:
+
+    contentdb --dry-run update
