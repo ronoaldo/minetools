@@ -29,6 +29,9 @@ var (
 
 	bytesInvalidModpack []byte      = mustReadFile("testdata/invalidmodpack.zip")
 	zipInvalidModpack   *zip.Reader = mustZip(bytesInvalidModpack)
+
+	bytesMoreblocks []byte      = mustReadFile("testdata/moreblocks.zip")
+	zipMoreblocks   *zip.Reader = mustZip(bytesMoreblocks)
 )
 
 func mustReadFile(f string) []byte {
@@ -76,7 +79,7 @@ func TestPackageArchive_FindFile(t *testing.T) {
 			fields:    fields{z: zip3darmor},
 			args:      args{"init.lua", 0},
 			wantCount: 7,
-			wantDir:   "3d_armor/wieldview/",
+			wantDir:   "3d_armor/3d_armor/",
 		},
 		{
 			name:      "should find only first init.lua when max is 1",
@@ -84,6 +87,13 @@ func TestPackageArchive_FindFile(t *testing.T) {
 			args:      args{"init.lua", 1},
 			wantCount: 1,
 			wantDir:   "3d_armor/3d_armor/",
+		},
+		{
+			name:      "should find init.lua in root directory if available",
+			fields:    fields{z: zipMoreblocks},
+			args:      args{"init.lua", 0},
+			wantCount: 2,
+			wantDir:   "moreblocks/",
 		},
 	}
 	for _, tt := range tests {

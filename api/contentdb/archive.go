@@ -82,7 +82,9 @@ func (p *PackageArchive) Contents() []string {
 func (p *PackageArchive) FindFile(name string, max int) (count int, dir string) {
 	for _, f := range p.Contents() {
 		if strings.HasSuffix(f, "/"+name) || f == name {
-			dir, _ = path.Split(f)
+			if dir == "" {
+				dir, _ = path.Split(f)
+			}
 			count++
 		}
 		if max > 0 && count >= max {

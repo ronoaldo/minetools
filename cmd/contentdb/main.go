@@ -151,8 +151,8 @@ func installMod(mods []string) error {
 		var modconf *ini.File
 
 		modconfFilename := "mod.conf"
-		// mod root dir is where init.lua is
-		_, stripPrefix := archive.FindFile("init.lua", 0)
+		// mod root dir is where the first init.lua is
+		_, stripPrefix := archive.FindFile("init.lua", 1)
 		if pkgType == contentdb.Modpack {
 			var found = 0
 			// For modpack, load a diferent config name and adjust the stripPrefix
