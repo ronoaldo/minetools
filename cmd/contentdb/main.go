@@ -13,7 +13,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/ronoaldo/minetools/api"
 	"github.com/ronoaldo/minetools/api/contentdb"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 	"gopkg.in/ini.v1"
 )
 
@@ -21,6 +21,26 @@ var (
 	apiDebug         bool
 	removeOldpackage bool
 	dryRun           bool
+	url              string
+
+	globalFlags = []cli.Flag{
+		&cli.BoolFlag{
+			Name:        "debug",
+			Aliases:     []string{"v", "verbose", "d"},
+			Usage:       "show debug information on console",
+			Destination: &apiDebug,
+		},
+		&cli.BoolFlag{
+			Name:        "dry-run",
+			Usage:       "do not actually perform any opertaions, just report what would be done",
+			Destination: &dryRun,
+		},
+		&cli.StringFlag{
+			Name:        "url",
+			Usage:       "endpoint of the ContentDB API",
+			Destination: &url,
+		},
+	}
 )
 
 // Helper functions
@@ -37,63 +57,58 @@ func init() {
 
 func main() {
 	app := cli.NewApp()
+	app.EnableBashCompletion = true
 	app.Name = "contentdb"
 	app.Usage = "Minetest ContentDB client implementation for headless server administration"
-	app.Commands = []cli.Command{
+	app.Commands = []*cli.Command{
 		{
 			Name:   "search",
 			Usage:  "search for content",
-			Action: search,
+			Flags:  globalFlags,
+			Action: withGlobalArgs(search),
 		},
 		{
 			Name:  "install",
 			Usage: "installs new mod into ./mods folder",
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:        "update",
-					Usage:       "update if the mod is already installed, removing old contents",
-					Destination: &removeOldpackage,
-				},
-			},
-			Action: func(c *cli.Context) error {
-				return installMod(c.Args())
-			},
+			Flags: append(globalFlags, &cli.BoolFlag{
+				Name:        "update",
+				Aliases:     []string{"u"},
+				Usage:       "update if the mod is already installed, removing old contents",
+				Destination: &removeOldpackage,
+			}),
+			Action: withGlobalArgs(func(c *cli.Context) error {
+				return installMod(c.Args().Slice())
+			}),
 		},
 		{
 			Name:  "update",
 			Usage: "updates all mods in the ./mods folder",
-			Action: func(c *cli.Context) error {
+			Flags: globalFlags,
+			Action: withGlobalArgs(func(c *cli.Context) error {
 				removeOldpackage = true
 				return update()
-			},
+			}),
 		},
 	}
-	app.Flags = append(app.Flags, cli.BoolFlag{
-		Name:        "debug",
-		EnvVar:      "CDB_DEBUG",
-		Usage:       "show debug information on console",
-		Destination: &apiDebug,
-	})
-	app.Flags = append(app.Flags, cli.BoolFlag{
-		Name:        "dry-run",
-		Usage:       "do not actually perform any opertaions, just report what would be done",
-		Destination: &dryRun,
-	})
-	app.Before = func(c *cli.Context) error {
-		if apiDebug {
-			api.LogLevel = api.Debug
-		}
-		return nil
-	}
-
 	if err := app.Run(os.Args); err != nil {
-		warnf("unexpected error: %v", err)
+		warnf("unexpected error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
+func withGlobalArgs(fn cli.ActionFunc) cli.ActionFunc {
+	return func(c *cli.Context) error {
+		if apiDebug {
+			api.LogLevel = api.Debug
+			api.Debugf("Log level set to DEBUG")
+		}
+		contentdb.Host = url
+		return fn(c)
+	}
+}
+
 func search(c *cli.Context) error {
-	queryString := strings.Join(c.Args(), " ")
+	queryString := strings.Join(c.Args().Slice(), " ")
 	cdb := contentdb.NewClient(context.Background())
 	query := contentdb.NewQuery(queryString).OrderBy("score")
 	pkgs, err := cdb.ListPackages(query)

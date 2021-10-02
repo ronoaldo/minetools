@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	host = "https://content.minetest.net"
+	Host = "https://content.minetest.net"
 )
 
 // Client implements a basic HTTP client that can be used to talk to the remote
@@ -32,7 +32,7 @@ func NewClient(ctx context.Context) *Client {
 func (c *Client) makeCall(method, path string, query url.Values, body io.Reader) (*http.Response, error) {
 	var retryCount int64
 	for {
-		url := host + path + "?" + query.Encode()
+		url := Host + path + "?" + query.Encode()
 		api.Debugf("Request %v %v", method, url)
 		req, err := http.NewRequest(method, url, nil)
 		if err != nil {
@@ -40,12 +40,16 @@ func (c *Client) makeCall(method, path string, query url.Values, body io.Reader)
 		}
 		req.Header.Set("User-Agent", "minetools/go1")
 		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
 		api.Debugf("Response %v: %v", resp.StatusCode, resp.Status)
 		if resp.StatusCode == 429 {
 			retryCount += 1
 			time.Sleep(time.Duration(2*retryCount) * time.Second)
 			continue
 		}
+		api.Debugf("Cache Status: %s", resp.Header.Get("x-cache"))
 		if resp.StatusCode == 404 {
 			return nil, fmt.Errorf("contentdb: package not found")
 		}

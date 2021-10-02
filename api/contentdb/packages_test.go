@@ -25,13 +25,13 @@ func logJSON(t *testing.T, v interface{}) {
 
 func mockServer(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(r.URL.Path, "/download/") {
-		http.Redirect(w, r, "/sfinv.zip", 302)
+		http.Redirect(w, r, "/sfinv.zip", http.StatusFound)
 		return
 	}
 	if strings.HasSuffix(r.URL.Path, ".zip") {
 		fd, err := os.Open("./testdata" + r.URL.Path)
 		if err != nil {
-			http.Error(w, "Error opening file: "+err.Error(), 500)
+			http.Error(w, "Error opening file: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		defer fd.Close()
@@ -125,8 +125,8 @@ func TestGetPackage(t *testing.T) {
 func TestPackageDownload(t *testing.T) {
 	// setUp
 	testServer := httptest.NewServer(http.HandlerFunc(mockServer))
-	origHost := host
-	host = testServer.URL
+	origHost := Host
+	Host = testServer.URL
 	if testing.Verbose() {
 		api.LogLevel = api.Debug
 	}
@@ -134,7 +134,7 @@ func TestPackageDownload(t *testing.T) {
 	// tearDown
 	defer func() {
 		testServer.Close()
-		host = origHost
+		Host = origHost
 	}()
 
 	// Test

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"time"
 
 	"github.com/ronoaldo/minetools/api"
 )
@@ -30,8 +31,8 @@ type Package struct {
 	Maintainers     []string `json:"maintainers,omitempty"`
 	Provides        []string `json:"provides,omitempty"`
 	ScreenShots     []string `json:"screenshots,omitempty"`
-	Tags            []string `json:"tags,ommitempty"`
-	State           string   `json:"state,ommitempty"`
+	Tags            []string `json:"tags,omitempty"`
+	State           string   `json:"state,omitempty"`
 
 	// Statistics
 	Score     float32 `json:"score,omitempty"`
@@ -178,16 +179,18 @@ func (c *Client) GetPackage(author, name string) (pkg *Package, err error) {
 
 // Download fetches the package archive from the ContentDB for the current revision.
 func (c *Client) Download(author, name string) (*PackageArchive, error) {
+	start := time.Now()
 	resp, err := c.makeCall("GET", "/packages/"+author+"/"+name+"/download/", nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("contentdb: unable to download: %v", err)
 	}
 	defer resp.Body.Close()
+	api.Debugf("Fetching bytes")
 	w := &bytes.Buffer{}
 	n, err := io.Copy(w, resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("contentdb: unable to save downloaded bytes: %v", err)
 	}
-	api.Debugf("wrote %d bytes", n)
+	api.Debugf("Wrote %d bytes (%v)", n, time.Since(start))
 	return NewPackageArchive(w.Bytes())
 }
