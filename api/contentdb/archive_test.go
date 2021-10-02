@@ -32,6 +32,9 @@ var (
 
 	bytesMoreblocks []byte      = mustReadFile("testdata/moreblocks.zip")
 	zipMoreblocks   *zip.Reader = mustZip(bytesMoreblocks)
+
+	bytesMapserver []byte      = mustReadFile("testdata/mapserver.zip")
+	zipMapserver   *zip.Reader = mustZip(bytesMapserver)
 )
 
 func mustReadFile(f string) []byte {
@@ -94,6 +97,13 @@ func TestPackageArchive_FindFile(t *testing.T) {
 			args:      args{"init.lua", 0},
 			wantCount: 2,
 			wantDir:   "moreblocks/",
+		},
+		{
+			name:      "should sort files first in deep directory tree",
+			fields:    fields{z: zipMapserver},
+			args:      args{"init.lua", 0},
+			wantCount: 2,
+			wantDir:   "mapserver/",
 		},
 	}
 	for _, tt := range tests {

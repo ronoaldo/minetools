@@ -60,6 +60,20 @@ func NewPackageArchive(b []byte) (*PackageArchive, error) {
 	return p, nil
 }
 
+type fileList []string
+
+func (fl fileList) Swap(i, j int) { fl[i], fl[j] = fl[j], fl[i] }
+func (fl fileList) Len() int      { return len(fl) }
+func (fl fileList) Less(i, j int) bool {
+	iSlashes, jSlashes := strings.Count(fl[i], "/"), strings.Count(fl[j], "/")
+	if iSlashes == jSlashes {
+		// in the same dir, compare strings
+		return fl[i] < fl[j]
+	}
+	// sort by depth in the dir tree
+	return iSlashes < jSlashes
+}
+
 // Contents returns a list of the package contents, ignoring directories.
 func (p *PackageArchive) Contents() []string {
 	if p.contents == nil {
@@ -71,7 +85,7 @@ func (p *PackageArchive) Contents() []string {
 			}
 			p.contents = append(p.contents, f.Name)
 		}
-		sort.Strings(p.contents)
+		sort.Sort(fileList(p.contents))
 	}
 	return p.contents
 }
