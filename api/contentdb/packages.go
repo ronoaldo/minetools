@@ -155,6 +155,7 @@ func (c *Client) ListPackages(q *Query) (pkgs []Package, err error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	if err := json.NewDecoder(resp.Body).Decode(&pkgs); err != nil {
 		return nil, err
 	}
@@ -168,6 +169,7 @@ func (c *Client) GetPackage(author, name string) (pkg *Package, err error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	if err = json.NewDecoder(resp.Body).Decode(&pkg); err != nil {
 		return nil, err
 	}
@@ -180,6 +182,7 @@ func (c *Client) Download(author, name string) (*PackageArchive, error) {
 	if err != nil {
 		return nil, fmt.Errorf("contentdb: unable to download: %v", err)
 	}
+	defer resp.Body.Close()
 	w := &bytes.Buffer{}
 	n, err := io.Copy(w, resp.Body)
 	if err != nil {
