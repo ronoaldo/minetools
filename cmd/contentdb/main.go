@@ -137,7 +137,7 @@ func installMod(mods []string) error {
 
 		if strings.Count(mod, "/") != 1 {
 			warnf("install: provide a valid package key: author/name (like rubenwardy/sfinv)")
-			continue
+			return err
 		}
 
 		// Get package details
@@ -146,7 +146,7 @@ func installMod(mods []string) error {
 		pkg, err = cdb.GetPackage(s[0], s[1])
 		if err != nil {
 			warnf("install: unable to find %v", mod)
-			continue
+			return err
 		}
 
 		// Download zip file
