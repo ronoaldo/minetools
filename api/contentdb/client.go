@@ -44,7 +44,9 @@ func (c *Client) makeCall(method, path string, query url.Values, body io.Reader)
 			return nil, err
 		}
 		api.Debugf("Response %v: %v", resp.StatusCode, resp.Status)
-		if resp.StatusCode == 429 {
+		if resp.StatusCode == http.StatusTooManyRequests ||
+			resp.StatusCode == http.StatusBadGateway ||
+			resp.StatusCode == http.StatusServiceUnavailable {
 			retryCount += 1
 			time.Sleep(time.Duration(2*retryCount) * time.Second)
 			continue
