@@ -37,4 +37,4 @@ To update all mods in the mods folder (including those installed with git!), use
 
 You can check what would be updated by running:
 
-    contentdb --dry-run update
+    contentdb update --dry-run
