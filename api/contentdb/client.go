@@ -29,6 +29,9 @@ func NewClient(ctx context.Context) *Client {
 	}
 }
 
+var maxRetries int64 = 8
+var backoffFactor int64 = 2
+
 func (c *Client) makeCall(method, path string, query url.Values, body io.Reader) (*http.Response, error) {
 	var retryCount int64
 	for {
@@ -48,10 +51,17 @@ func (c *Client) makeCall(method, path string, query url.Values, body io.Reader)
 			resp.StatusCode == http.StatusBadGateway ||
 			resp.StatusCode == http.StatusServiceUnavailable {
 			retryCount += 1
-			time.Sleep(time.Duration(2*retryCount) * time.Second)
+			if retryCount > maxRetries {
+				return nil, fmt.Errorf("error making API call, after %d retries: %v", retryCount, err)
+			}
+			backoff := time.Duration(backoffFactor*retryCount) * time.Second
+			api.Debugf("Response took too long, waiting %v (Retry %d/%d)", backoff, retryCount, maxRetries)
+			time.Sleep(backoff)
 			continue
 		}
-		api.Debugf("Cache Status: %s", resp.Header.Get("x-cache"))
+		if resp.Header.Get("x-cache") != "" {
+			api.Debugf("Cache Status: %s", resp.Header.Get("x-cache"))
+		}
 		if resp.StatusCode == 404 {
 			return nil, fmt.Errorf("contentdb: package not found")
 		}

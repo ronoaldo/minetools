@@ -23,9 +23,20 @@ func logJSON(t *testing.T, v interface{}) {
 	t.Logf("logJSON: %v", string(b))
 }
 
+var mockServerReqCount int
+
 func mockServer(w http.ResponseWriter, r *http.Request) {
+	mockServerReqCount++
 	if strings.HasSuffix(r.URL.Path, "/download/") {
 		http.Redirect(w, r, "/sfinv.zip", http.StatusFound)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/mock/429") {
+		http.Error(w, "Too many requests", http.StatusTooManyRequests)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/mock/500") {
+		http.Error(w, "Too many requests", http.StatusInternalServerError)
 		return
 	}
 	if strings.HasSuffix(r.URL.Path, ".zip") {
