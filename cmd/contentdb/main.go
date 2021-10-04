@@ -38,6 +38,7 @@ var (
 		&cli.StringFlag{
 			Name:        "url",
 			Usage:       "endpoint of the ContentDB API",
+			DefaultText: contentdb.Host,
 			Destination: &url,
 		},
 	}
@@ -102,7 +103,9 @@ func withGlobalArgs(fn cli.ActionFunc) cli.ActionFunc {
 			api.LogLevel = api.Debug
 			api.Debugf("Log level set to DEBUG")
 		}
-		contentdb.Host = url
+		if url != "" {
+			contentdb.Host = url
+		}
 		return fn(c)
 	}
 }
