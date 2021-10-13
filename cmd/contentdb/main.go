@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -143,22 +144,33 @@ func installMod(mods []string) error {
 			return err
 		}
 
-		// Get package details
-		fmt.Println("Searching for package ", mod)
+		// Extract specified version.
+		release := ""
+		if strings.Count(mod, "@") == 1 {
+			// Use package version after @
+			parts := strings.Split(mod, "@")
+			mod, release = parts[0], parts[1]
+		}
+
+		fmt.Println("Fetching package details: ", mod)
 		s := strings.Split(mod, "/")
 		pkg, err = cdb.GetPackage(s[0], s[1])
 		if err != nil {
 			warnf("install: unable to find %v", mod)
 			return err
 		}
+		if release == "" {
+			// If no version was specified, use default version
+			// from package details
+			release = strconv.FormatInt(int64(pkg.Release), 10)
+		}
 
-		// Download zip file
-		fmt.Printf("Downloading %v/%v@%v ...\n", pkg.Author, pkg.Name, pkg.Release)
-		archive, err := cdb.Download(pkg.Author, pkg.Name)
+		// Download zip file for target release
+		fmt.Printf("Downloading %v/%v@%v ...\n", pkg.Author, pkg.Name, release)
+		archive, err := cdb.DownloadRelease(pkg.Author, pkg.Name, release)
 		if err != nil {
 			return err
 		}
-
 		pkgType := archive.Type()
 		if pkgType != contentdb.Mod && pkgType != contentdb.Modpack {
 			warnf("install: package is not a mod/modpack: %s", pkgType)
@@ -203,7 +215,7 @@ func installMod(mods []string) error {
 		modName := pkg.Name
 		cfg.Key("name").SetValue(modName)
 		cfg.Key("author").SetValue(pkg.Author)
-		cfg.Key("release").SetValue(fmt.Sprintf("%d", pkg.Release))
+		cfg.Key("release").SetValue(release)
 		if !cfg.HasKey("title") {
 			cfg.Key("title").SetValue(pkg.Title)
 		}
@@ -261,7 +273,6 @@ func installMod(mods []string) error {
 			}
 		}
 		green("Installed %v into %v\n", mod, destdir)
-		fmt.Printf("Add load_mod_%s = true to world.mt to use it.\n", pkg.Name)
 		fmt.Printf("* Dependencies: %v\n", cfg.Key("depends").String())
 		fmt.Printf("* Optional dependencies: %v\n", cfg.Key("optional_depends").String())
 	}

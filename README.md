@@ -31,6 +31,10 @@ To install a mod/modpack, use the `install` subcommand:
 
     contentdb install mod rubenwardy/sfinv
 
+Or alternativelly, specify a specific release to install:
+
+    contentdb install mod rubenwardy/sfinv@52
+
 To update all mods in the mods folder (including those installed with git!), use the `update` subdommand:
 
     contentdb update

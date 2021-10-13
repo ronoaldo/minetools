@@ -3,10 +3,9 @@ package contentdb
 import (
 	"context"
 	"encoding/json"
-	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -39,17 +38,20 @@ func mockServer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Too many requests", http.StatusInternalServerError)
 		return
 	}
-	if strings.HasSuffix(r.URL.Path, ".zip") {
-		fd, err := os.Open("./testdata" + r.URL.Path)
-		if err != nil {
-			http.Error(w, "Error opening file: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer fd.Close()
-		io.Copy(w, fd)
+
+	if strings.Contains(r.URL.Path, "/sfinv/releases/6537") {
+		http.ServeFile(w, r, "./testdata/releases_6537.json")
+		return
+	} else if strings.Contains(r.URL.Path, "/sfinv/releases") {
+		http.ServeFile(w, r, "./testdata/releases.json")
 		return
 	}
-	http.Error(w, "Not found", http.StatusNotFound)
+	if strings.HasSuffix(r.URL.Path, ".zip") {
+		http.ServeFile(w, r, "./testdata"+r.URL.Path)
+		return
+	}
+	log.Printf("Not found: " + r.URL.Path)
+	http.Error(w, "Not found: "+r.URL.Path, http.StatusNotFound)
 }
 
 func TestListPackages(t *testing.T) {
@@ -179,6 +181,56 @@ func TestPackageDownload(t *testing.T) {
 			}
 			if gotBytesLen := len(p.b.Bytes()); tt.wantBytesLen < gotBytesLen {
 				t.Errorf("Package.Download() = %v, want min len %v", gotBytesLen, tt.wantBytesLen)
+			}
+		})
+	}
+}
+
+func TestDownloadRelease(t *testing.T) {
+	// setUp
+	testServer := httptest.NewServer(http.HandlerFunc(mockServer))
+	origHost := Host
+	Host = testServer.URL
+	if testing.Verbose() {
+		api.LogLevel = api.Debug
+	}
+
+	// tearDown
+	defer func() {
+		testServer.Close()
+		Host = origHost
+	}()
+
+	type args struct {
+		author  string
+		name    string
+		release string
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantBytesLen int
+		wantErr      bool
+	}{
+		{
+			name:         "can download specified release",
+			args:         args{author: "rubenwardy", name: "sfinv", release: "6537"},
+			wantBytesLen: 38606,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := NewClient(context.Background())
+			got, err := c.DownloadRelease(tt.args.author, tt.args.name, tt.args.release)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Client.DownloadRelease() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err != nil {
+				if len(got.Bytes()) != tt.wantBytesLen {
+					t.Errorf("Client.DownloadRelease().Bytes() = %v, want %v", len(got.Bytes()), tt.wantBytesLen)
+				}
 			}
 		})
 	}

@@ -45,6 +45,16 @@ type Package struct {
 	URL          string `json:"url,omitempty"`
 }
 
+// PackageRelease is a single downloadable version of a package.
+type PackageRelease struct {
+	ID          int    `json:"id,omitempty"`
+	Title       string `json:"title,omitempty"`
+	ReleaseDate string `json:"release_date,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Commit      string `json:"commit,omitempty"`
+	Downlads    int    `json:"downloads,omitempty"`
+}
+
 // Query can be used to filter out the content returned by ListPackages.
 type Query struct {
 	Type            string
@@ -177,10 +187,47 @@ func (c *Client) GetPackage(author, name string) (pkg *Package, err error) {
 	return pkg, err
 }
 
+func (c *Client) ListReleases(author, name string) (r []*PackageRelease, err error) {
+	resp, err := c.makeCall("GET", "/api/packages/"+author+"/"+name+"/releases/", nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err = json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return nil, err
+	}
+	return r, err
+}
+
+func (c *Client) GetRelease(author, name, release string) (r *PackageRelease, err error) {
+	resp, err := c.makeCall("GET", "/api/packages/"+author+"/"+name+"/releases/"+release, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err = json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return nil, err
+	}
+	return r, err
+}
+
 // Download fetches the package archive from the ContentDB for the current revision.
 func (c *Client) Download(author, name string) (*PackageArchive, error) {
+	return c.fetchArchive("/packages/" + author + "/" + name + "/download/")
+}
+
+// DownloadRelease fetches the provided package from the ContentDB in the specified revision.
+func (c *Client) DownloadRelease(author, name, release string) (*PackageArchive, error) {
+	r, err := c.GetRelease(author, name, release)
+	if err != nil {
+		return nil, err
+	}
+	// We expect download URLs to be relative to the API endpoint.
+	return c.fetchArchive(r.URL)
+}
+func (c *Client) fetchArchive(path string) (*PackageArchive, error) {
 	start := time.Now()
-	resp, err := c.makeCall("GET", "/packages/"+author+"/"+name+"/download/", nil, nil)
+	resp, err := c.makeCall("GET", path, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("contentdb: unable to download: %v", err)
 	}
