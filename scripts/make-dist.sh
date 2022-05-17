@@ -2,7 +2,7 @@
 set -e
 # set -x
 
-ARCHS="amd64 386"
+ARCHS="amd64 386 arm64"
 OSES="linux windows"
 
 # Cleanup previous builds
