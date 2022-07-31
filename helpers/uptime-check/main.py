@@ -57,7 +57,9 @@ def serverUp(info):
 
 @app.route("/status")
 def status():
-    info = socket.getaddrinfo("mercurio.ronoaldo.net", "30000", type=socket.SOCK_DGRAM, proto=socket.SOL_UDP)
+    host = request.args.get("host")
+    port = request.args.get("port")
+    info = socket.getaddrinfo(host, port, type=socket.SOCK_DGRAM, proto=socket.SOL_UDP)
     ping = serverUp(info[0])
     if not ping:
         return "Server unavailable", 402
