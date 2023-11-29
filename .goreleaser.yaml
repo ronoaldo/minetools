@@ -1,0 +1,27 @@
+builds:
+  - id: "minetools"
+    main: "./cmd/minetools/"
+    binary: "minetools"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+
+archives:
+  - replacements:
+      linux: linux
+      windows: Windows
+      386: 32bits
+      amd64: 64bits
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "{{ incpath .Version }}-next"
+changelog:
+  sort: asc
+  use: git
