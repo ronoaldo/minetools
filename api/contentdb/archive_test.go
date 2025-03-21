@@ -3,7 +3,7 @@ package contentdb
 import (
 	"archive/zip"
 	"bytes"
-	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -38,7 +38,7 @@ var (
 )
 
 func mustReadFile(f string) []byte {
-	b, err := ioutil.ReadFile(f)
+	b, err := os.ReadFile(f)
 	if err != nil {
 		panic(err)
 	}

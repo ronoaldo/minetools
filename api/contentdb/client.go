@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -66,7 +65,7 @@ func (c *Client) makeCall(method, path string, query url.Values, body io.Reader)
 			return nil, fmt.Errorf("contentdb: package not found")
 		}
 		if resp.StatusCode < 200 || resp.StatusCode > 299 {
-			b, _ := ioutil.ReadAll(resp.Body)
+			b, _ := io.ReadAll(resp.Body)
 			return nil, fmt.Errorf("contentdb: error calling API, status=%v, payload=%v", resp.StatusCode, string(b))
 		}
 		return resp, nil

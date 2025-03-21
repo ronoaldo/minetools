@@ -4,7 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"path"
 	"path/filepath"
 	"sort"
@@ -149,7 +149,7 @@ func (p *PackageArchive) ReadFile(pattern string) ([]byte, error) {
 				return nil, err
 			}
 			defer reader.Close()
-			return ioutil.ReadAll(reader)
+			return io.ReadAll(reader)
 		}
 	}
 	return nil, ErrFileNotFound
