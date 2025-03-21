@@ -101,7 +101,7 @@ func main() {
 func withGlobalArgs(fn cli.ActionFunc) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		if apiDebug {
-			api.LogLevel = api.Debug
+			api.SetLogLevel(api.Debug)
 			api.Debugf("Log level set to DEBUG")
 		}
 		if url != "" {

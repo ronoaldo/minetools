@@ -28,17 +28,18 @@ var ErrModNotFound = errors.New("mod not found")
 // For Minetest >= 5.6.0, the hint provided is used to desambiguate
 // from mods in more than one directory.
 func LookupModByName(name string, hint string) (path string, err error) {
-	Debugf("looking for mod %s", name)
+	Debugf("searching for mod %s", name)
 	// Syntax suggar
 	join := filepath.Join
 	ls := filepath.Glob
 
 	// Lookup on top level dirs where the mod can be installed
 	for _, topDir := range TopLevelDirs {
-		Debugf("> searching mod %s under %s", name, topDir)
+		Debugf("searching mod %s under %s/mods", name, topDir)
 		modDir := join(topDir, "mods", name)
 		if isDir(modDir) {
 			// Found a directory with the requested mod name!
+			Debugf("found mod at %v", modDir)
 			return modDir, nil
 		}
 	}
@@ -46,26 +47,31 @@ func LookupModByName(name string, hint string) (path string, err error) {
 	// Lookup on modpacks in the top dirs where the mod ban be installed
 	for _, topDir := range TopLevelDirs {
 		globPattern := join(topDir, "mods", "*", "modpack.conf")
-		Debugf("> searching mod %s under modpacks at %s", name, globPattern)
+		Debugf("searching mod %s under modpacks at %s", name, globPattern)
 		// Mod packs have a modpack.conf file so look for them
 		modPacks, err := ls(globPattern)
 		if err != nil {
-			Warningf("Error searching for modpacks: %v", modPacks)
+			Warningf("error searching for modpacks: %v", modPacks)
 			return "", err
 		}
 		for _, modPack := range modPacks {
 			modDir := join(filepath.Dir(modPack), name)
 			if isDir(modDir) {
 				// Found a directory within a mod with the requested name!
+				Debugf("found mod at %v", modDir)
 				return modDir, nil
 			}
 		}
 	}
 
+	Debugf("mod %v not found", name)
 	return "", ErrModNotFound
 }
 
 func isDir(path string) bool {
+	if path == "" {
+		return false
+	}
 	stat, err := os.Stat(path)
 	if err != nil {
 		return false

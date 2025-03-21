@@ -5,44 +5,90 @@ import (
 	"os"
 )
 
-type logLevel int
+type LogLevel int
 
 const (
 	// Debug log level
-	Debug logLevel = 0
+	Debug LogLevel = 0
 	// Info log level
-	Info logLevel = 1
+	Info LogLevel = 1
 	// Warning log level
-	Warning logLevel = 5
+	Warning LogLevel = 5
+	// Error log level
+	Error LogLevel = 6
 	// NoLogs disable logs completely
-	NoLogs logLevel = 9
+	NoLogs LogLevel = 9
 )
+
+// Logger is a thin stdlib log wrapper.
+type Logger struct {
+	Level  LogLevel
+	Logger *log.Logger
+}
+
+// NewLogger creates a new Logger to help with debug/info/warning messages.
+func NewLogger(prefix string) *Logger {
+	logger := Logger{
+		Level:  Warning,
+		Logger: log.New(os.Stderr, prefix, log.Ldate|log.Ltime),
+	}
+	return &logger
+}
+
+// Debugf logs the provided message if debug level is enabled.
+func (l *Logger) Debugf(m string, args ...interface{}) {
+	if l.Level <= Debug {
+		l.Logger.Printf("DEBUG: "+m, args...)
+	}
+}
+
+// Infof logs the provided message if debug level is enabled.
+func (l *Logger) Infof(m string, args ...interface{}) {
+	if l.Level <= Info {
+		l.Logger.Printf("INFO: "+m, args...)
+	}
+}
+
+// Warningf logs the provided message if debug level is enabled.
+func (l *Logger) Warningf(m string, args ...interface{}) {
+	if l.Level <= Warning {
+		l.Logger.Printf("WARNING: "+m, args...)
+	}
+}
+
+// Errorf logs the provided message if debug level is enabled.
+func (l *Logger) Errorf(m string, args ...interface{}) {
+	if l.Level <= Error {
+		l.Logger.Printf("ERROR: "+m, args...)
+	}
+}
 
 var (
-	// LogLevel controls the global logging for the API calls.
-	LogLevel logLevel = Warning
-
 	// logger is the internal package logger.
-	logger = log.New(os.Stderr, "[minetools.api] ", log.Ldate|log.Ltime)
+	logger = NewLogger("[minetools.api] ")
 )
 
-// Debugf logs the provided message if debug level is enabled
+// SetLogLevel sets the Logging level for the default API logs.
+func SetLogLevel(level LogLevel) {
+	logger.Level = level
+}
+
+// Debugf logs the provided message if debug level is enabled.
 func Debugf(m string, args ...interface{}) {
-	if LogLevel <= Debug {
-		logger.Printf("DEBUG: "+m, args...)
-	}
+	logger.Debugf(m, args...)
 }
 
-// Infof logs the provided message if debug level is enabled
+// Infof logs the provided message if debug level is enabled.
 func Infof(m string, args ...interface{}) {
-	if LogLevel <= Info {
-		logger.Printf("INFO: "+m, args...)
-	}
+	logger.Infof(m, args...)
 }
 
-// Warningf logs the provided message if debug level is enabled
+// Warningf logs the provided message if debug level is enabled.
 func Warningf(m string, args ...interface{}) {
-	if LogLevel <= Warning {
-		logger.Printf("WARNING: "+m, args...)
-	}
+	logger.Warningf(m, args...)
+}
+
+// Errorf logs the provided message if debug level is enabled.
+func Errorf(m string, args ...interface{}) {
+	logger.Errorf(m, args...)
 }

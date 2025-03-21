@@ -141,7 +141,7 @@ func TestPackageDownload(t *testing.T) {
 	origHost := Host
 	Host = testServer.URL
 	if testing.Verbose() {
-		api.LogLevel = api.Debug
+		api.SetLogLevel(api.Debug)
 	}
 
 	// tearDown
@@ -192,7 +192,7 @@ func TestDownloadRelease(t *testing.T) {
 	origHost := Host
 	Host = testServer.URL
 	if testing.Verbose() {
-		api.LogLevel = api.Debug
+		api.SetLogLevel(api.Debug)
 	}
 
 	// tearDown

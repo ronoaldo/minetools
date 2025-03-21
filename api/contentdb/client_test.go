@@ -16,7 +16,7 @@ func TestClient_makeCall(t *testing.T) {
 	origHost := Host
 	Host = testServer.URL
 	if testing.Verbose() {
-		api.LogLevel = api.Debug
+		api.SetLogLevel(api.Debug)
 	}
 	origMaxRetries, origBackoffFactor := maxRetries, backoffFactor
 	maxRetries, backoffFactor = 2, 1

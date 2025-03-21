@@ -3,10 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"mime"
 	"os"
 	"path/filepath"
@@ -17,12 +15,13 @@ import (
 )
 
 var (
-	worldPath string
+	worldDir  string
 	targetDir string
 )
 
 var (
 	join = filepath.Join
+	log  = api.NewLogger("[minetools] ")
 )
 
 func main() {
@@ -36,10 +35,10 @@ func main() {
 			Usage: "extract textures from all mods in the given world path",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:        "world-path",
+					Name:        "world-dir",
 					Usage:       "the path to the world directory to be processed",
 					Required:    true,
-					Destination: &worldPath,
+					Destination: &worldDir,
 				},
 				&cli.StringFlag{
 					Name:        "target-dir",
@@ -52,21 +51,22 @@ func main() {
 		},
 	}
 
-	api.LogLevel = api.Debug
+	api.SetLogLevel(api.Debug)
+	log.Level = api.Debug
 
 	if err := app.Run(os.Args); err != nil {
-		fmt.Fprintf(os.Stderr, "Unexpected error: %v", err)
+		log.Errorf("unexpected error: %v", err)
 	}
 }
 
 func worldTextures(c *cli.Context) error {
-	log.Printf("Processing world at %s", worldPath)
+	log.Infof("processing world at %s", worldDir)
 
 	// Load world.mt at worldPath
-	worldMt := join(worldPath, "world.mt")
+	worldMt := join(worldDir, "world.mt")
 	b, err := os.ReadFile(worldMt)
 	if err != nil {
-		log.Printf("Could not read file %s: %v", worldMt, err)
+		log.Warningf("could not read file %s: %v", worldMt, err)
 		return err
 	}
 
@@ -79,7 +79,7 @@ func worldTextures(c *cli.Context) error {
 		if strings.HasPrefix(line, "load_mod_") {
 			parts := strings.Split(line, "=")
 			if len(parts) != 2 {
-				log.Printf("Error parsing line %d: '%s': expected only one = sign", lineNo, line)
+				log.Warningf("error parsing line %d: '%s': expected only one '=' sign", lineNo, line)
 				continue
 			}
 			mod, hint := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
@@ -88,12 +88,12 @@ func worldTextures(c *cli.Context) error {
 				enabled = false
 			}
 			mod = strings.Replace(mod, "load_mod_", "", -1)
-			log.Printf("Mod %s is enabled: %v", mod, enabled)
+			log.Debugf("mod %s is enabled: %v", mod, enabled)
 
 			if enabled {
 				modPath, err := api.LookupModByName(mod, hint)
 				if err != nil {
-					log.Printf("Mod %s could not be found. Is this mod installed?", mod)
+					log.Warningf("mod %s could not be found. Is this mod installed? (err=%v)", mod, err)
 					continue
 				}
 				mods = append(mods, modPath)
@@ -101,10 +101,10 @@ func worldTextures(c *cli.Context) error {
 		}
 	}
 
-	log.Printf("Extracting textures from: %v", mods)
+	log.Infof("extracting textures from: %v", mods)
 
 	if err := os.MkdirAll(targetDir, 0766); err != nil {
-		log.Fatalf("error creating target dir: %v", err)
+		log.Warningf("error creating target dir: %v", err)
 	}
 
 	for _, modDir := range mods {
@@ -120,9 +120,10 @@ func copyTexture(path string, d fs.DirEntry, err error) error {
 	if d != nil && d.IsDir() {
 		return nil
 	}
-	log.Printf("> path=%s, d=%v, err=%v", path, d, err)
+	log.Debugf("copyTexture from path=%s", path)
 	ext := filepath.Ext(path)
 	mType := mime.TypeByExtension(ext)
+	written := make(map[string]struct{})
 	switch mType {
 	case "image/png", "image/jpeg", "image/bmp", "image/x-tga":
 		var (
@@ -131,19 +132,25 @@ func copyTexture(path string, d fs.DirEntry, err error) error {
 			err error
 		)
 		if src, err = os.Open(path); err != nil {
-			log.Fatalf("error opening texture %v: %v", path, err)
+			log.Warningf("error opening texture %v: %v", path, err)
 		}
 		dstName := join(targetDir, filepath.Base(path))
+		if _, ok := written[dstName]; ok {
+			log.Warningf("duplicated texture detected: %v duplicates %v", path, dstName)
+		}
 		if dst, err = os.OpenFile(dstName, os.O_WRONLY|os.O_CREATE, 0644); err != nil {
-			log.Fatalf("error opening target file %v: %v", dstName, err)
+			log.Warningf("error opening target file %v: %v", dstName, err)
+			return err
 		}
 		if b, err := io.Copy(dst, src); err != nil {
-			log.Fatalf("error copying file: %v", err)
+			log.Warningf("error copying file: %v", err)
+			return err
 		} else {
-			log.Printf("> %d bytes written.", b)
+			log.Debugf("%d bytes written to %v", b, dstName)
 		}
+		written[dstName] = struct{}{}
 	default:
-		log.Printf("Unsupported mime: %v", mType)
+		log.Warningf("unsupported mime: %v", mType)
 	}
 	return nil
 }
