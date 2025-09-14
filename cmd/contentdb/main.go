@@ -130,6 +130,12 @@ func search(c *cli.Context) error {
 	return nil
 }
 
+// hasNoUpdateFile checks if a mod contains a noupdate file
+func hasNoUpdateFile() bool {
+	_, err := os.Stat("noupdate")
+	return err == nil
+}
+
 func installMod(mods []string) error {
 	cdb := contentdb.NewClient(context.Background())
 
@@ -307,6 +313,12 @@ func updateMod(cdb *contentdb.Client, modDir string) error {
 		return err
 	}
 	defer os.Chdir(pwd)
+
+	// Check if the mod should be skipped (noupdate file present)
+	if hasNoUpdateFile() {
+		fmt.Printf("🚫 SKIPPING: Module marked as no-update (noupdate file present)\n")
+		return nil
+	}
 
 	_, err = os.Stat(".git")
 	if err == nil {
